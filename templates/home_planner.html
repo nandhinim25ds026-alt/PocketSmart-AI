@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Home Planner - PocketSmart</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">PocketSmart</div>
+    <div>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/party-planner">Party Planner</a>
+      <a href="/jewelry-planner">Jewelry Planner</a>
+      <a href="/history">History</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <h2>Home Interior Budget Planner</h2>
+      <form id="homeForm">
+        <label>Total Budget (₹)</label>
+        <input type="number" name="total_budget" min="0" step="0.01" required>
+
+        <label>Number of Lights/Fixtures</label>
+        <input type="number" name="num_lights" min="0" value="0">
+
+        <label>Number of Ceiling Fans</label>
+        <input type="number" name="num_fans" min="0" value="0">
+
+        <label>Number of Furniture Pieces</label>
+        <input type="number" name="num_furniture" min="0" value="0">
+
+        <label>Number of Dining Tables</label>
+        <input type="number" name="num_dining_tables" min="0" value="0">
+
+        <label>Rooms to Include</label>
+        <div class="checkbox-row"><input type="checkbox" name="has_living_room" id="lr"><label for="lr" style="display:inline;">Living Room</label></div>
+        <div class="checkbox-row"><input type="checkbox" name="has_kitchen" id="kt"><label for="kt" style="display:inline;">Kitchen</label></div>
+        <div class="checkbox-row"><input type="checkbox" name="has_bedroom" id="bd"><label for="bd" style="display:inline;">Bedroom</label></div>
+
+        <label>Additional Requirements</label>
+        <textarea name="additional_requirements" rows="3"></textarea>
+
+        <button type="submit" class="btn" style="margin-top:20px;">Generate Recommendations</button>
+      </form>
+      <div id="loading" style="display:none;">Generating your budget plan...</div>
+      <div id="errorBox"></div>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById("homeForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      document.getElementById("loading").style.display = "block";
+      document.getElementById("errorBox").innerHTML = "";
+      document.getElementById("results").innerHTML = "";
+
+      const fd = new FormData(form);
+      const payload = {
+        total_budget: parseFloat(fd.get("total_budget")),
+        num_lights: parseInt(fd.get("num_lights") || 0),
+        num_fans: parseInt(fd.get("num_fans") || 0),
+        num_furniture: parseInt(fd.get("num_furniture") || 0),
+        num_dining_tables: parseInt(fd.get("num_dining_tables") || 0),
+        has_living_room: fd.get("has_living_room") === "on",
+        has_kitchen: fd.get("has_kitchen") === "on",
+        has_bedroom: fd.get("has_bedroom") === "on",
+        additional_requirements: fd.get("additional_requirements") || null
+      };
+
+      try {
+        const res = await fetch("/home-budget", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error((await res.json()).detail || "Request failed");
+        const result = await res.json();
+        renderResults(result);
+      } catch (err) {
+        document.getElementById("errorBox").innerHTML = `<div class="error-box">${err.message}</div>`;
+      } finally {
+        document.getElementById("loading").style.display = "none";
+      }
+    });
+
+    function renderResults(result) {
+      let html = `<div class="budget-summary">
+        <div>Total Budget: ₹${result.total_budget}</div>
+        <div>Remaining: ₹${result.remaining_budget}</div>
+      </div>`;
+
+      (result.budget_breakdown || []).forEach(cat => {
+        html += `<div class="card result-category">
+          <h3>${cat.category} — Allocation ₹${cat.allocation}</h3>`;
+        (cat.items || []).forEach(item => {
+          html += `<div class="result-item">
+            <strong>${item.name}</strong> (x${item.quantity}) — ₹${item.estimated_price}
+            <p>${item.description}</p>
+            <div class="shopping-links">`;
+          if (item.shopping_links) {
+            for (const [site, url] of Object.entries(item.shopping_links)) {
+              html += `<a href="${url}" target="_blank">${site}</a>`;
+            }
+          }
+          html += `</div></div>`;
+        });
+        html += `</div>`;
+      });
+
+      if (result.additional_suggestions && result.additional_suggestions.length) {
+        html += `<div class="card"><h3>Additional Suggestions</h3><ul>`;
+        result.additional_suggestions.forEach(s => html += `<li>${s}</li>`);
+        html += `</ul></div>`;
+      }
+
+      document.getElementById("results").innerHTML = html;
+    }
+  </script>
+</body>
+</html>
