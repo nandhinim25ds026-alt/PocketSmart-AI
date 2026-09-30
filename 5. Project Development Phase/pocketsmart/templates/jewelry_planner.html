@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Jewelry Planner - PocketSmart</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">PocketSmart</div>
+    <div>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/home-planner">Home Planner</a>
+      <a href="/party-planner">Party Planner</a>
+      <a href="/history">History</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <h2>Jewelry Budget Planner</h2>
+      <form id="jewelryForm">
+        <label>Total Budget (₹)</label>
+        <input type="number" name="total_budget" min="0" step="0.01" required>
+
+        <label>Occasion</label>
+        <input type="text" name="occasion" placeholder="Birthday, Wedding, Anniversary..." required>
+
+        <label>Style Preferences</label>
+        <textarea name="preferences" rows="3" placeholder="Materials, colors, style..."></textarea>
+
+        <label>Upload Outfit Image (optional)</label>
+        <input type="file" name="image" accept="image/*">
+
+        <button type="submit" class="btn" style="margin-top:20px;">Get Recommendations</button>
+      </form>
+      <div id="loading" style="display:none;">Analyzing and generating recommendations...</div>
+      <div id="errorBox"></div>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById("jewelryForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      document.getElementById("loading").style.display = "block";
+      document.getElementById("errorBox").innerHTML = "";
+      document.getElementById("results").innerHTML = "";
+
+      const fd = new FormData(form); // sent directly, includes the file
+
+      try {
+        const res = await fetch("/jewelry-budget", { method: "POST", body: fd });
+        if (!res.ok) throw new Error((await res.json()).detail || "Request failed");
+        const result = await res.json();
+        renderResults(result);
+      } catch (err) {
+        document.getElementById("errorBox").innerHTML = `<div class="error-box">${err.message}</div>`;
+      } finally {
+        document.getElementById("loading").style.display = "none";
+      }
+    });
+
+    function renderResults(result) {
+      let html = `<div class="budget-summary">
+        <div>Total Budget: ₹${result.total_budget}</div>
+        <div>Remaining: ₹${result.remaining_budget}</div>
+      </div>`;
+
+      if (result.outfit_analysis && (result.outfit_analysis.style || (result.outfit_analysis.colors || []).length)) {
+        html += `<div class="card">
+          <h3>Outfit Analysis</h3>
+          <p>Colors: ${(result.outfit_analysis.colors || []).join(", ")}</p>
+          <p>Style: ${result.outfit_analysis.style}</p>
+          <p>Formality: ${result.outfit_analysis.formality}</p>
+        </div>`;
+      }
+
+      html += `<div class="card"><h3>Jewelry Recommendations</h3>`;
+      (result.jewelry_recommendations || []).forEach(item => {
+        html += `<div class="result-item">
+          <strong>${item.item_type}</strong> — ₹${item.estimated_price}
+          <p>${item.description}</p>
+          <p><em>Style: ${item.style}</em></p>
+          <div class="shopping-links">`;
+        if (item.shopping_links) {
+          for (const [site, url] of Object.entries(item.shopping_links)) {
+            html += `<a href="${url}" target="_blank">${site}</a>`;
+          }
+        }
+        html += `</div></div>`;
+      });
+      html += `</div>`;
+
+      if (result.styling_tips && result.styling_tips.length) {
+        html += `<div class="card"><h3>Styling Tips</h3><ul>`;
+        result.styling_tips.forEach(t => html += `<li>${t}</li>`);
+        html += `</ul></div>`;
+      }
+
+      document.getElementById("results").innerHTML = html;
+    }
+  </script>
+</body>
+</html>

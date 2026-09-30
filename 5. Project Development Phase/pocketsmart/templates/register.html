@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Account - PocketSmart</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand"><a href="/" style="color:white;text-decoration:none;">PocketSmart</a></div>
+  </div>
+
+  <div class="container" style="max-width:400px;">
+    <div class="card">
+      <h2>Create Your Account</h2>
+      <form id="registerForm">
+        <label>Username</label>
+        <input type="text" name="username" required>
+        <label>Email</label>
+        <input type="email" name="email" required>
+        <label>Password</label>
+        <input type="password" name="password" required>
+        <button type="submit" class="btn" style="margin-top:20px;width:100%;">Create Account</button>
+      </form>
+      <div id="errorBox"></div>
+      <p style="margin-top:16px;">Already have an account? <a href="/login">Sign In</a></p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const res = await fetch("/register", { method: "POST", body: formData });
+      if (res.redirected) {
+        window.location.href = res.url;
+      } else {
+        const data = await res.json().catch(() => ({ detail: "Registration failed" }));
+        document.getElementById("errorBox").innerHTML =
+          `<div class="error-box">${data.detail || "Registration failed"}</div>`;
+      }
+    });
+  </script>
+</body>
+</html>
